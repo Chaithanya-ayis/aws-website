@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AWS × MVJCE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+
+<style>
+/* =========================================================
+   1. COLOURS  (change these two lines to re-theme the site)
+   ========================================================= */
+:root{
+  --red:#ff1e2d;
+  --red-dark:#6d0010;
+  --black:#050505;
+  --panel:#0e0e0e;
+  --white:#f2f2f2;
+  --muted:#9a9a9a;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--black);
+  color:var(--white);
+  font-family:'Space Grotesk',sans-serif;
+  overflow-x:hidden;
+}
+body:not(.entered){overflow:hidden}          /* no scrolling during the intro */
+a{color:inherit;text-decoration:none}
+
+/* =========================================================
+   2. INTRO  (loader + spotlights + title)
+   ========================================================= */
+#intro{
+  position:fixed;inset:0;z-index:1000;
+  background:#000;
+  overflow:hidden;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  transition:opacity 1.1s ease, transform 1.1s ease, filter 1.1s ease;
+}
+#intro.done{opacity:0;transform:scale(1.35);filter:blur(12px);pointer-events:none}
+
+/* the 3 spotlight beams (their angle is controlled by JavaScript) */
+.beam{
+  position:absolute;top:-6vh;left:50%;
+  width:46vmax;height:135vh;margin-left:-23vmax;
+  transform-origin:50% 0;
+  clip-path:polygon(47% 0,53% 0,100% 100%,0 100%);
+  background:linear-gradient(to bottom,rgba(255,60,70,.95) 0%,rgba(255,20,35,.35) 45%,rgba(255,0,20,0) 100%);
+  filter:blur(5px);
+  mix-blend-mode:screen;
+  opacity:.4;
+  will-change:transform,opacity;
+}
+/* little glowing lamp at the top of each beam */
+.lamp{position:absolute;top:-10px;left:50%;width:90px;height:30px;margin-left:-45px;
+  background:radial-gradient(ellipse,rgba(255,120,130,.9),transparent 70%);filter:blur(4px)}
+
+/* pool of light on the "floor" */
+.floor{
+  position:absolute;left:50%;bottom:-18vh;width:120vmax;height:55vh;transform:translateX(-50%);
+  background:radial-gradient(ellipse at center,rgba(255,30,45,.55),transparent 65%);
+  opacity:0;transition:opacity 1.6s ease;
+}
+#intro.lit .floor{opacity:1}
+/* dark vignette around the edges */
+.vignette{position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse at center,transparent 35%,rgba(0,0,0,.9) 100%)}
+
+.title-wrap{position:relative;z-index:5;text-align:center;padding:0 16px}
+.big{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(5.5rem,24vw,17rem);
+  line-height:.85;letter-spacing:.02em;
+  color:var(--white);
+  text-shadow:0 0 30px rgba(255,30,45,.9),0 0 80px rgba(255,30,45,.5);
+}
+.big .x{color:var(--red)}
+.sub{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(1.6rem,6vw,3.6rem);letter-spacing:.25em;color:var(--red);
+  margin-top:6px;
+}
+.tag{margin-top:18px;font-size:clamp(.65rem,1.8vw,.9rem);letter-spacing:.45em;color:var(--muted);opacity:0;transition:opacity 1s ease 1.6s}
+#intro.lit .tag{opacity:1}
+
+/* each letter is a <span> made by JavaScript so it can flicker on like a bulb */
+.split span{display:inline-block;opacity:0;transform:translateY(40px) scale(.92);filter:blur(10px)}
+#intro.lit .split span{animation:flick .9s forwards;animation-delay:calc(var(--i) * .11s + .5s)}
+@keyframes flick{
+  0%{opacity:0;transform:translateY(40px) scale(.92);filter:blur(10px)}
+  12%{opacity:1}
+  18%{opacity:.05}
+  28%{opacity:1}
+  38%{opacity:.25}
+  55%,100%{opacity:1;transform:none;filter:none}
+}
+
+/* ---------- MORE INTRO EFFECTS ---------- */
+
+/* red code rain behind everything */
+#rain{position:absolute;inset:0;width:100%;height:100%;z-index:0;opacity:.5;transition:opacity 1.5s}
+#intro.lit #rain{opacity:.16}
+
+/* terminal-style boot text while loading */
+.boot{position:absolute;left:5vw;top:5vh;z-index:6;font:12px/1.9 monospace;letter-spacing:.08em;color:var(--red);transition:opacity .6s}
+.boot div{animation:typein .4s steps(12) both}
+@keyframes typein{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
+#intro.lit .boot{opacity:0}
+
+/* floating photo frames (your MVJCE photos) */
+.frames{position:absolute;inset:0;z-index:2;perspective:900px;pointer-events:none}
+.frame{
+  position:absolute;width:var(--w,170px);aspect-ratio:4/5;
+  border:1px solid rgba(255,30,45,.7);box-shadow:0 0 34px rgba(255,30,45,.4);
+  opacity:0;transform:translateZ(-250px) rotateY(var(--ry,20deg)) scale(.7);
+  transition:opacity 1.2s ease var(--dl,0s),transform 1.8s cubic-bezier(.2,.8,.2,1) var(--dl,0s);
+}
+#intro.fon .frame{opacity:.85;transform:rotateY(var(--ry,20deg)) scale(1)}
+#intro.lit .frame{opacity:.28}
+.ph{
+  position:relative;width:100%;height:100%;overflow:hidden;
+  background:linear-gradient(160deg,#2a0007,#0a0a0a);
+  display:flex;align-items:center;justify-content:center;
+  animation:bob var(--bt,6s) ease-in-out infinite alternate;
+}
+.ph::after{content:attr(data-name);font-size:.55rem;letter-spacing:.2em;color:var(--muted);text-align:center;padding:8px;word-break:break-all}
+.ph::before{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(to top,rgba(255,30,45,.4),transparent 60%)}
+.ph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;transition:transform .7s ease}
+@keyframes bob{from{transform:translateY(-12px)}to{transform:translateY(14px)}}
+
+/* TV scanlines + a moving scan bar */
+.scan{position:absolute;inset:0;z-index:7;pointer-events:none;overflow:hidden;
+  background:repeating-linear-gradient(to bottom,rgba(0,0,0,.2) 0 1px,transparent 1px 3px)}
+.scan::after{content:"";position:absolute;left:0;right:0;height:140px;top:-140px;
+  background:linear-gradient(to bottom,transparent,rgba(255,30,45,.12),transparent);animation:scanmove 4.5s linear infinite}
+@keyframes scanmove{to{top:100%}}
+
+/* flash + shockwave rings the moment the title lights up */
+.flash{position:absolute;inset:0;z-index:8;background:rgba(255,215,215,.9);opacity:0;pointer-events:none}
+#intro.lit .flash{animation:flash .9s ease-out}
+@keyframes flash{0%{opacity:.85}100%{opacity:0}}
+.wave{position:absolute;left:50%;top:50%;width:30vmax;height:30vmax;margin:-15vmax 0 0 -15vmax;border-radius:50%;z-index:3;opacity:0;pointer-events:none;
+  background:radial-gradient(circle,transparent 58%,rgba(255,30,45,.85) 60%,transparent 63%)}
+#intro.lit .wave{animation:wave 1.8s ease-out .1s}
+#intro.lit .wave.w2{animation-delay:.4s}
+@keyframes wave{0%{opacity:.9;transform:scale(0)}100%{opacity:0;transform:scale(3.6)}}
+
+/* title glitches every few seconds once ready */
+#intro.ready .big{animation:glitch 4s infinite}
+@keyframes glitch{
+  0%,90%,100%{transform:none;text-shadow:0 0 30px rgba(255,30,45,.9),0 0 80px rgba(255,30,45,.5)}
+  92%{transform:translate(-6px,2px) skewX(-6deg);text-shadow:6px 0 #fff,-6px 0 var(--red)}
+  94%{transform:translate(6px,-2px) skewX(6deg);text-shadow:-6px 0 #fff,6px 0 var(--red)}
+  96%{transform:none}
+}
+@media (max-width:800px){
+  .frame{width:90px!important}
+  .f1,.f4,.f5{display:none}
+  .boot{font-size:10px}
+}
+
+/* loading counter */
+.counter{
+  position:absolute;left:5vw;bottom:5vh;z-index:6;
+  font-family:'Bebas Neue',sans-serif;
+  transition:opacity .6s ease;
+}
+.counter small{display:block;font-family:'Space Grotesk';font-size:.7rem;letter-spacing:.4em;color:var(--muted)}
+.counter b{font-size:clamp(3.5rem,10vw,6rem);font-weight:400;color:var(--red);line-height:1}
+#intro.lit .counter{opacity:0}
+.bar{position:absolute;left:0;bottom:0;height:3px;width:0;background:var(--red);z-index:6;box-shadow:0 0 14px var(--red);transition:opacity .6s}
+#intro.lit .bar{opacity:0}
+
+/* ENTER button (appears after the title lights up) */
+#enter{
+  position:relative;z-index:6;margin-top:34px;
+  padding:14px 38px;border:1px solid var(--red);background:transparent;color:var(--white);
+  font-family:'Space Grotesk';font-weight:700;letter-spacing:.35em;font-size:.8rem;cursor:pointer;
+  opacity:0;pointer-events:none;transform:translateY(10px);
+  transition:all .8s ease;
+}
+#intro.ready #enter{opacity:1;pointer-events:auto;transform:none;animation:pulse 1.8s infinite}
+#enter:hover{background:var(--red);box-shadow:0 0 30px var(--red)}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 rgba(255,30,45,0)}50%{box-shadow:0 0 24px rgba(255,30,45,.6)}}
+
+/* =========================================================
+   3. SITE BACKGROUND + CURSOR SPOTLIGHT
+   ========================================================= */
+#dust{position:fixed;inset:0;z-index:0;pointer-events:none}
+/* real 3D scene (Three.js) sits behind the text */
+#three{position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:1;pointer-events:none;opacity:0;transition:opacity 1.6s ease .6s}
+body.entered #three{opacity:var(--o,1)}
+
+/* dark layer with a hole that follows your mouse */
+#spot{
+  position:fixed;inset:0;z-index:60;pointer-events:none;
+  --x:50vw;--y:50vh;
+  background:
+    radial-gradient(circle 260px at var(--x) var(--y),rgba(255,30,45,.14),transparent 70%),
+    radial-gradient(circle 250px at var(--x) var(--y),transparent 0%,rgba(0,0,0,.84) 100%);
+  transition:opacity .5s;
+}
+body:not(.entered) #spot,body.nospot #spot{opacity:0}
+
+/* =========================================================
+   4. NAVIGATION
+   ========================================================= */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:70;
+  display:flex;justify-content:space-between;align-items:center;
+  padding:18px 5vw;
+  background:linear-gradient(to bottom,rgba(5,5,5,.9),transparent);
+  transform:translateY(-100%);transition:transform .9s ease .4s;
+}
+body.entered nav{transform:none}
+.logo{font-family:'Bebas Neue';font-size:1.7rem;letter-spacing:.08em}
+.logo span{color:var(--red)}
+.links{display:flex;gap:26px;align-items:center;font-size:.8rem;letter-spacing:.2em;text-transform:uppercase}
+.links a{position:relative;color:var(--muted);transition:color .3s}
+.links a:hover{color:var(--white)}
+.links a::after{content:"";position:absolute;left:0;bottom:-6px;height:2px;width:0;background:var(--red);transition:width .3s}
+.links a:hover::after{width:100%}
+#toggle{
+  background:transparent;border:1px solid var(--red-dark);color:var(--white);
+  padding:7px 14px;font:inherit;font-size:.7rem;letter-spacing:.2em;cursor:pointer;text-transform:uppercase;
+}
+#toggle:hover{border-color:var(--red)}
+body.nospot #toggle{opacity:.55}
+
+/* =========================================================
+   5. SECTIONS
+   ========================================================= */
+section{position:relative;z-index:2;padding:110px 6vw}
+.eyebrow{font-size:.75rem;letter-spacing:.45em;color:var(--red);text-transform:uppercase;margin-bottom:18px}
+h2{font-family:'Bebas Neue';font-weight:400;font-size:clamp(2.8rem,8vw,6rem);line-height:.95;margin-bottom:26px}
+h2 em{font-style:normal;color:var(--red)}
+
+/* scroll-reveal */
+.reveal{opacity:0;transform:translateY(50px);transition:opacity 1s ease,transform 1s ease;transition-delay:var(--d,0s)}
+.reveal.in{opacity:1;transform:none}
+
+/* HERO */
+#home{min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding-top:130px}
+#home h1{
+  font-family:'Bebas Neue';font-weight:400;
+  font-size:clamp(3.4rem,13vw,11rem);line-height:.88;letter-spacing:.01em;
+}
+#home h1 .r{color:var(--red);text-shadow:0 0 40px rgba(255,30,45,.55)}
+#home p{max-width:520px;margin-top:28px;color:var(--muted);line-height:1.7}
+.btn{
+  display:inline-block;margin-top:34px;padding:16px 38px;
+  background:var(--red);color:#fff;font-weight:700;letter-spacing:.25em;font-size:.8rem;text-transform:uppercase;
+  transition:transform .3s,box-shadow .3s;
+}
+.btn:hover{transform:translateY(-3px);box-shadow:0 10px 40px rgba(255,30,45,.5)}
+.btn.ghost{background:transparent;border:1px solid var(--red);margin-left:14px}
+.scrollhint{position:absolute;bottom:34px;left:6vw;font-size:.7rem;letter-spacing:.4em;color:var(--muted)}
+.scrollhint::after{content:"";display:block;width:1px;height:50px;background:var(--red);margin-top:12px;animation:drop 1.8s infinite}
+@keyframes drop{0%{transform:scaleY(0);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}51%{transform-origin:bottom}100%{transform:scaleY(0);transform-origin:bottom}}
+
+/* MARQUEE strip */
+.marquee{position:relative;z-index:2;overflow:hidden;border-block:1px solid #222;background:rgba(255,30,45,.06);padding:16px 0}
+.track{display:flex;width:max-content;animation:slide 28s linear infinite}
+.track span{font-family:'Bebas Neue';font-size:2rem;letter-spacing:.15em;padding:0 28px;color:var(--white)}
+.track span:nth-child(even){color:var(--red)}
+@keyframes slide{to{transform:translateX(-50%)}}
+
+/* ABOUT + stats */
+.about-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:60px;align-items:center}
+.about-grid p{color:var(--muted);line-height:1.8;margin-bottom:16px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.stat{border:1px solid #222;background:var(--panel);padding:30px 22px;position:relative;overflow:hidden}
+.stat::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 0 0,rgba(255,30,45,.25),transparent 60%)}
+.stat b{position:relative;font-family:'Bebas Neue';font-weight:400;font-size:3.6rem;color:var(--red);display:block;line-height:1}
+.stat span{position:relative;font-size:.7rem;letter-spacing:.3em;color:var(--muted);text-transform:uppercase}
+
+/* CAMPUS PHOTO GALLERY */
+.gallery{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:230px;gap:16px;margin-top:30px}
+.tile{position:relative;border:1px solid #222;overflow:hidden;background:var(--panel);transition:border-color .3s}
+.tile:hover{border-color:var(--red)}
+.tile.big{grid-row:span 2}
+.tile .ph{animation:none}
+.tile:hover .ph img{transform:scale(1.1)}
+.tile figcaption{position:absolute;left:16px;bottom:12px;z-index:3;font-family:'Bebas Neue';font-size:1.5rem;letter-spacing:.1em}
+@media (max-width:800px){
+  .gallery{grid-template-columns:1fr 1fr;grid-auto-rows:170px}
+  .tile.big{grid-column:span 2;grid-row:span 1}
+}
+
+/* 3D ORBIT */
+#orbit{text-align:center;overflow:hidden}
+.stage{
+  height:480px;perspective:1300px;margin-top:30px;
+  cursor:grab;touch-action:pan-y;user-select:none;
+  display:flex;align-items:center;justify-content:center;
+}
+.stage:active{cursor:grabbing}
+#ring{position:relative;width:250px;height:330px;transform-style:preserve-3d}
+.card{
+  position:absolute;inset:0;
+  background:linear-gradient(160deg,#171717,#0a0a0a);
+  border:1px solid #2a2a2a;padding:26px 22px;text-align:left;
+  backface-visibility:hidden;
+  display:flex;flex-direction:column;justify-content:space-between;
+  overflow:hidden;
+  --mx:50%;--my:50%;
+}
+.card::before{ /* small spotlight that follows the mouse inside a card */
+  content:"";position:absolute;inset:0;
+  background:radial-gradient(circle 150px at var(--mx) var(--my),rgba(255,30,45,.35),transparent 70%);
+  opacity:0;transition:opacity .3s;
+}
+.card:hover::before{opacity:1}
+.card:hover{border-color:var(--red)}
+.card .n{font-family:'Bebas Neue';font-size:3.4rem;color:var(--red);line-height:1;position:relative}
+.card h3{font-family:'Bebas Neue';font-weight:400;font-size:2rem;letter-spacing:.04em;margin-bottom:8px;position:relative}
+.card p{font-size:.85rem;color:var(--muted);line-height:1.6;position:relative}
+.hint{margin-top:10px;font-size:.7rem;letter-spacing:.4em;color:var(--muted)}
+
+/* JOIN */
+#join{text-align:center;padding-bottom:160px}
+#join h2{font-size:clamp(3.2rem,12vw,9rem)}
+#join p{color:var(--muted);max-width:480px;margin:0 auto}
+footer{position:relative;z-index:2;border-top:1px solid #1c1c1c;padding:30px 6vw;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;font-size:.75rem;letter-spacing:.2em;color:var(--muted)}
+
+/* ================= SCROLL STORY: a 3D intro that plays as you scroll ================= */
+#story{height:520vh;padding:0;background:var(--black)}
+.pin{position:sticky;top:0;height:100vh;overflow:hidden}
+#storyCv{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none}
+.word{
+  position:absolute;top:50%;z-index:1;transform:translateY(-50%);
+  font-family:'Bebas Neue';font-size:clamp(3.4rem,12.5vw,10.5rem);line-height:.9;letter-spacing:.01em;
+  white-space:nowrap;will-change:transform,opacity;
+}
+.wl{left:4vw}
+.wr{right:4vw;color:var(--red);text-shadow:0 0 40px rgba(255,30,45,.5)}
+.cap{position:absolute;z-index:4;font-size:.68rem;letter-spacing:.32em;color:var(--muted);line-height:1.8}
+.capl{left:4vw;bottom:24vh}
+.capr{right:4vw;top:24vh;text-align:right}
+#s2{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:100%;text-align:center;z-index:3;opacity:0;pointer-events:none;padding:0 4vw}
+#s2 .small{font-size:.72rem;letter-spacing:.45em;color:var(--red);margin-bottom:14px}
+#s2 .bl{font-family:'Bebas Neue';font-size:clamp(3.2rem,13vw,11rem);line-height:.88}
+#s2 .bl.r{color:var(--red);text-shadow:0 0 50px rgba(255,30,45,.55)}
+.count{position:absolute;left:4vw;bottom:11vh;z-index:4;font-family:'Bebas Neue';line-height:1}
+.count b{font-weight:400;font-size:clamp(2.2rem,5vw,3.6rem)}
+.count small{display:block;font-family:'Space Grotesk';font-size:.6rem;letter-spacing:.4em;color:var(--muted);margin-top:4px}
+.shint{position:absolute;left:50%;bottom:12vh;transform:translateX(-50%);z-index:4;font-size:.7rem;letter-spacing:.4em;color:var(--muted);text-align:center}
+.shint::after{content:"";display:block;width:1px;height:40px;background:var(--red);margin:10px auto 0;animation:drop 1.8s infinite}
+.strip{position:absolute;left:0;right:0;bottom:0;z-index:5;overflow:hidden;border-top:1px solid #222;background:rgba(0,0,0,.7);padding:11px 0}
+.track2{display:flex;width:max-content;animation:slide 45s linear infinite}
+.track2 span{font-size:.72rem;letter-spacing:.35em;color:var(--muted);padding:0 22px;white-space:nowrap}
+.track2 span:nth-child(even){color:var(--red)}
+@media (max-width:800px){
+  .wl{top:30%}.wr{top:70%}
+  .capl{bottom:20vh}.capr{top:17vh}
+}
+
+/* MOBILE */
+@media (max-width:800px){
+  .about-grid{grid-template-columns:1fr;gap:40px}
+  .links a{display:none}
+  .stage{height:430px}
+  .btn.ghost{margin:14px 0 0}
+  #spot{display:none}
+  #toggle{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}
+</style>
+<!-- Three.js: the library that makes real 3D possible -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+
+<body>
+
+<!-- ========================= INTRO ========================= -->
+<div id="intro">
+  <canvas id="rain"></canvas>
+  <div class="beam"><div class="lamp"></div></div>
+  <div class="beam"><div class="lamp"></div></div>
+  <div class="beam"><div class="lamp"></div></div>
+  <div class="floor"></div>
+  <div class="vignette"></div>
+
+  <!-- MVJCE PHOTOS in the intro. Put your photos in a folder called "images"
+       and name them campus1.jpg ... campus5.jpg (if a photo is missing, a placeholder shows) -->
+  <div class="frames">
+    <div class="frame f1" style="left:24%;top:14%;--ry:25deg;--w:150px;--dl:.2s"><div class="ph" data-name="images/campus1.jpg" style="--bt:6s"><img src="images/campus1.jpg" alt="" onerror="this.remove()"></div></div>
+    <div class="frame f2" style="right:6%;top:9%;--ry:-25deg;--w:200px;--dl:.5s"><div class="ph" data-name="images/campus2.jpg" style="--bt:7s"><img src="images/campus2.jpg" alt="" onerror="this.remove()"></div></div>
+    <div class="frame f3" style="right:10%;bottom:12%;--ry:-18deg;--w:160px;--dl:.8s"><div class="ph" data-name="images/campus3.jpg" style="--bt:5.5s"><img src="images/campus3.jpg" alt="" onerror="this.remove()"></div></div>
+    <div class="frame f4" style="left:4%;top:44%;--ry:22deg;--w:130px;--dl:1.1s"><div class="ph" data-name="images/campus4.jpg" style="--bt:6.5s"><img src="images/campus4.jpg" alt="" onerror="this.remove()"></div></div>
+    <div class="frame f5" style="right:2.5%;top:48%;--ry:-22deg;--w:125px;--dl:1.4s"><div class="ph" data-name="images/campus5.jpg" style="--bt:7.5s"><img src="images/campus5.jpg" alt="" onerror="this.remove()"></div></div>
+  </div>
+
+  <div class="boot" id="boot"></div>
+  <div class="wave"></div><div class="wave w2"></div>
+  <div class="flash"></div>
+  <div class="scan"></div>
+
+  <div class="title-wrap">
+    <div class="big"><span class="split">AWS</span></div>
+    <div class="sub"><span class="split">× MVJCE</span></div>
+    <!-- EDIT: tagline -->
+    <div class="tag">STUDENTS. CLOUD. REAL IMPACT.</div>
+    <button id="enter">ENTER</button>
+  </div>
+
+  <div class="counter"><small>LOADING</small><b id="num">000</b></div>
+  <div class="bar" id="bar"></div>
+</div>
+
+<canvas id="dust"></canvas>
+<canvas id="three"></canvas>
+<div id="spot"></div>
+
+<!-- ========================= NAV ========================= -->
+<nav>
+  <a class="logo" href="#home">AWS<span>×</span>MVJCE</a>
+  <div class="links">
+    <a href="#about">About</a>
+    <a href="#campus">Campus</a>
+    <a href="#orbit">What we do</a>
+    <a href="#join">Join</a>
+    <button id="toggle">Spotlight</button>
+  </div>
+</nav>
+
+<!-- ========================= SCROLL STORY (3D intro) =========================
+     Scroll down: the words split apart, the crystal bursts into particles,
+     then a new 3D shape appears. EDIT the texts below. -->
+<section id="story">
+  <div class="pin">
+    <div class="word wl" id="wl">BORN IN</div>
+    <div class="word wr" id="wr">MVJCE</div>
+    <div class="cap capl" id="cl">WE TRANSCEND<br>CLASSROOMS</div>
+    <div class="cap capr" id="cr">BUILT FOR<br>THE CLOUD</div>
+
+    <canvas id="storyCv"></canvas>
+
+    <div id="s2">
+      <div class="small">©AWS CLUB · MVJ COLLEGE OF ENGINEERING</div>
+      <div class="bl">BORN OF</div>
+      <div class="bl r">CODE &amp; CLOUD</div>
+    </div>
+
+    <div class="count"><b id="cnum">+ 00</b><small>AWS × MVJCE</small></div>
+    <div class="shint" id="shint">SCROLL</div>
+
+    <div class="strip"><div class="track2">
+      <span>MVJ COLLEGE OF ENGINEERING</span><span>AWS CLUB</span><span>STUDENTS</span><span>CLOUD</span><span>REAL IMPACT</span><span>BENGALURU</span>
+      <span>MVJ COLLEGE OF ENGINEERING</span><span>AWS CLUB</span><span>STUDENTS</span><span>CLOUD</span><span>REAL IMPACT</span><span>BENGALURU</span>
+    </div></div>
+  </div>
+</section>
+
+<!-- ========================= HERO ========================= -->
+<section id="home">
+  <div class="eyebrow reveal">AWS Club · MVJCE</div>
+  <h1 class="reveal" style="--d:.15s">STUDENTS.<br><span class="r">CLOUD.</span><br>REAL IMPACT.</h1>
+  <!-- EDIT: hero paragraph -->
+  <p class="reveal" style="--d:.3s">A student community at MVJCE that learns, builds and ships on the cloud. Move your mouse — the spotlight follows you.</p>
+  <div class="reveal" style="--d:.45s">
+    <a class="btn" href="#join">Join the club</a>
+    <a class="btn ghost" href="#orbit">Explore</a>
+  </div>
+  <div class="scrollhint">SCROLL</div>
+</section>
+
+<!-- ========================= MARQUEE ========================= -->
+<div class="marquee">
+  <div class="track">
+    <span>EC2</span><span>S3</span><span>LAMBDA</span><span>IAM</span><span>DYNAMODB</span><span>CLOUDFRONT</span><span>VPC</span><span>RDS</span>
+    <span>EC2</span><span>S3</span><span>LAMBDA</span><span>IAM</span><span>DYNAMODB</span><span>CLOUDFRONT</span><span>VPC</span><span>RDS</span>
+  </div>
+</div>
+
+<!-- ========================= ABOUT ========================= -->
+<section id="about">
+  <div class="about-grid">
+    <div>
+      <div class="eyebrow reveal">Who we are</div>
+      <h2 class="reveal" style="--d:.1s">BUILT BY STUDENTS.<br><em>POWERED BY CLOUD.</em></h2>
+      <!-- EDIT: write about your club here -->
+      <p class="reveal" style="--d:.2s">We are the AWS club of MVJCE. We turn cloud computing from theory into things you can actually build, deploy and show off.</p>
+      <p class="reveal" style="--d:.3s">Whether you are a complete beginner or already know your way around a terminal, there is a place for you here.</p>
+    </div>
+    <div class="stats">
+      <!-- EDIT: change data-count numbers to your real numbers -->
+      <div class="stat reveal"><b data-count="50">0</b><span>Members</span></div>
+      <div class="stat reveal" style="--d:.1s"><b data-count="10">0</b><span>Workshops</span></div>
+      <div class="stat reveal" style="--d:.2s"><b data-count="5">0</b><span>Projects</span></div>
+      <div class="stat reveal" style="--d:.3s"><b data-count="3">0</b><span>Events</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= CAMPUS PHOTOS ========================= -->
+<section id="campus">
+  <div class="eyebrow reveal">Our campus</div>
+  <h2 class="reveal" style="--d:.1s">LIFE AT <em>MVJCE</em></h2>
+  <!-- EDIT: change the captions. Photos go in the "images" folder as campus1.jpg ... campus5.jpg -->
+  <div class="gallery">
+    <figure class="tile big reveal"><div class="ph" data-name="images/campus1.jpg"><img src="images/campus1.jpg" alt="MVJCE campus" onerror="this.remove()"></div><figcaption>CAMPUS</figcaption></figure>
+    <figure class="tile reveal" style="--d:.1s"><div class="ph" data-name="images/campus2.jpg"><img src="images/campus2.jpg" alt="" onerror="this.remove()"></div><figcaption>LABS</figcaption></figure>
+    <figure class="tile reveal" style="--d:.2s"><div class="ph" data-name="images/campus3.jpg"><img src="images/campus3.jpg" alt="" onerror="this.remove()"></div><figcaption>EVENTS</figcaption></figure>
+    <figure class="tile reveal" style="--d:.3s"><div class="ph" data-name="images/campus4.jpg"><img src="images/campus4.jpg" alt="" onerror="this.remove()"></div><figcaption>CLUBS</figcaption></figure>
+    <figure class="tile reveal" style="--d:.4s"><div class="ph" data-name="images/campus5.jpg"><img src="images/campus5.jpg" alt="" onerror="this.remove()"></div><figcaption>STUDENTS</figcaption></figure>
+  </div>
+</section>
+
+<!-- ========================= ORBIT ========================= -->
+<section id="orbit">
+  <div class="eyebrow reveal">What we do</div>
+  <h2 class="reveal" style="--d:.1s">ENTER THE <em>ORBIT</em></h2>
+  <div class="hint">DRAG TO ROTATE</div>
+  <div class="stage" id="stage">
+    <div id="ring">
+      <!-- EDIT: change the text of any card. Add or remove cards freely (3 to 10 works best). -->
+      <div class="card"><div class="n">01</div><div><h3>CLOUD WORKSHOPS</h3><p>Hands-on sessions on EC2, S3, Lambda and more. Learn by doing.</p></div></div>
+      <div class="card"><div class="n">02</div><div><h3>HACKATHONS</h3><p>Build something real against the clock, in a team.</p></div></div>
+      <div class="card"><div class="n">03</div><div><h3>CERTIFICATIONS</h3><p>Study groups and guidance for AWS certification exams.</p></div></div>
+      <div class="card"><div class="n">04</div><div><h3>PROJECTS</h3><p>Deploy websites, apps and APIs that live on the cloud.</p></div></div>
+      <div class="card"><div class="n">05</div><div><h3>TALKS</h3><p>Sessions with seniors, alumni and industry engineers.</p></div></div>
+      <div class="card"><div class="n">06</div><div><h3>COMMUNITY</h3><p>A place to ask questions, share wins and grow together.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= JOIN ========================= -->
+<section id="join">
+  <div class="eyebrow reveal">Your move</div>
+  <h2 class="reveal" style="--d:.1s">JOIN THE <em>CLOUD</em></h2>
+  <p class="reveal" style="--d:.2s">Ready to build with us? Say hello and become part of AWS × MVJCE.</p>
+  <!-- EDIT: put your real Google Form / Instagram / email link in href -->
+  <a class="btn reveal" style="--d:.3s" href="#" target="_blank">Apply now</a>
+</section>
+
+<footer>
+  <span>AWS × MVJCE</span>
+  <span>STUDENTS. CLOUD. REAL IMPACT.</span>
+</footer>
+
+<script>
+/* =========================================================
+   JAVASCRIPT  — this makes everything move
+   ========================================================= */
+
+/* ---- 1. Split big title into letters so each can flicker on ---- */
+document.querySelectorAll('.split').forEach(el=>{
+  const text = el.textContent;
+  el.textContent = '';
+  [...text].forEach((ch,i)=>{
+    const s = document.createElement('span');
+    s.textContent = ch === ' ' ? '\u00A0' : ch;
+    s.style.setProperty('--i', i);
+    if (ch === '×') s.className = 'x';
+    el.appendChild(s);
+  });
+});
+
+/* ---- 2. Spotlight beams: they sweep around, then lock onto the title ---- */
+const intro = document.getElementById('intro');
+const beams = [...document.querySelectorAll('.beam')];
+const cfg = [
+  {base:-28, amp:32, spd:.70, ph:0, lock:-16},
+  {base:  0, amp:38, spd:.50, ph:2, lock:  0},
+  {base: 28, amp:32, spd:.90, ph:4, lock: 16}
+];
+let lit = false, k = 0, t = 0, running = true;
+
+function beamLoop(){
+  if(!running) return;
+  t += 0.016;
+  k += ((lit ? 1 : 0) - k) * 0.035;          // k moves smoothly from 0 to 1
+  beams.forEach((b,i)=>{
+    const c = cfg[i];
+    const sweep = c.base + Math.sin(t*c.spd + c.ph) * c.amp;
+    const angle = sweep*(1-k) + c.lock*k;     // blend "sweeping" into "locked"
+    b.style.transform = `rotate(${angle}deg)`;
+    b.style.opacity = 0.4 + 0.5*k;
+  });
+  requestAnimationFrame(beamLoop);
+}
+beamLoop();
+
+/* ---- 3. Loading counter 000 -> 100, then lights up ---- */
+const num = document.getElementById('num');
+
+/* terminal boot lines that "type" in as the loading counter grows */
+const bootEl = document.getElementById('boot');
+const bootLines = [
+  [3,  '> initialising cloud core'],
+  [22, '> connecting EC2 ........ OK'],
+  [42, '> mounting S3 buckets .... OK'],
+  [62, '> deploying Lambda ....... OK'],
+  [82, '> loading MVJCE campus ... OK'],
+  [98, '> all systems ready']
+];
+let bootI = 0;
+function bootLog(p){
+  while(bootI < bootLines.length && p >= bootLines[bootI][0]){
+    const d = document.createElement('div');
+    d.textContent = bootLines[bootI][1];
+    bootEl.appendChild(d);
+    bootI++;
+  }
+}
+
+/* red falling code (matrix rain) behind the intro */
+const rc = document.getElementById('rain'), rx = rc.getContext('2d');
+let drops = [];
+function rainSize(){
+  rc.width = innerWidth; rc.height = innerHeight;
+  drops = Array.from({length: Math.floor(innerWidth/18)}, ()=>Math.random() * -50);
+}
+rainSize(); addEventListener('resize', rainSize);
+const glyphs = '01AWSEC2S3IAM{}<>/;#'.split('');
+(function rain(){
+  if(!running) return;
+  rx.fillStyle = 'rgba(0,0,0,.12)';
+  rx.fillRect(0, 0, rc.width, rc.height);
+  rx.fillStyle = '#ff1e2d';
+  rx.font = '15px monospace';
+  drops.forEach((y,i)=>{
+    rx.fillText(glyphs[Math.random()*glyphs.length | 0], i*18, y*18);
+    drops[i] = (y*18 > rc.height && Math.random() > .975) ? 0 : y + .5;
+  });
+  requestAnimationFrame(rain);
+})();
+const bar = document.getElementById('bar');
+let n = 0;
+function count(){
+  n += Math.random()*2.2 + .4;
+  bootLog(Math.min(n, 100));
+  if(n >= 100){
+    n = 100;
+    num.textContent = '100';
+    bar.style.width = '100%';
+    setTimeout(()=>{
+      intro.classList.add('lit');                 // spotlights lock on, title flickers on
+      lit = true;
+      setTimeout(()=>intro.classList.add('ready'), 2300);   // show ENTER button
+    }, 350);
+    return;
+  }
+  num.textContent = String(Math.floor(n)).padStart(3,'0');
+  bar.style.width = n + '%';
+  setTimeout(count, 40);
+}
+setTimeout(count, 400);
+setTimeout(()=>intro.classList.add('fon'), 800);   // photo frames fly in
+
+/* ---- 4. ENTER -> reveal the website ---- */
+function enterSite(){
+  if(!intro.classList.contains('ready')) return;
+  document.body.classList.add('entered');
+  intro.classList.add('done');
+  startReveal();
+  setTimeout(()=>{ running = false; intro.remove(); }, 1200);
+}
+document.getElementById('enter').addEventListener('click', enterSite);
+addEventListener('keydown', e=>{ if(e.key === 'Enter') enterSite(); });
+
+/* ---- 5. Scroll-reveal + counting numbers ---- */
+function startReveal(){
+  const io = new IntersectionObserver(entries=>{
+    entries.forEach(en=>{
+      if(!en.isIntersecting) return;
+      en.target.classList.add('in');
+      const c = en.target.querySelector('[data-count]');
+      if(c) countUp(c);
+      io.unobserve(en.target);
+    });
+  },{threshold:.15});
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+}
+function countUp(el){
+  const end = +el.dataset.count; let cur = 0;
+  const step = Math.max(1, Math.ceil(end/40));
+  const id = setInterval(()=>{
+    cur += step;
+    if(cur >= end){ cur = end; clearInterval(id); }
+    el.textContent = cur + '+';
+  }, 35);
+}
+
+/* ---- 6. Red dust floating in the background ---- */
+const cv = document.getElementById('dust'), cx = cv.getContext('2d');
+let W, H, P = [];
+function sizeCanvas(){
+  W = cv.width = innerWidth; H = cv.height = innerHeight;
+  P = Array.from({length: Math.min(90, W/14|0)}, ()=>({
+    x:Math.random()*W, y:Math.random()*H,
+    r:Math.random()*1.8+.4, v:Math.random()*.4+.1, a:Math.random()*.6+.2
+  }));
+}
+sizeCanvas(); addEventListener('resize', sizeCanvas);
+(function drawDust(){
+  cx.clearRect(0,0,W,H);
+  P.forEach(p=>{
+    p.y -= p.v;
+    if(p.y < -5){ p.y = H+5; p.x = Math.random()*W; }
+    cx.beginPath(); cx.arc(p.x,p.y,p.r,0,7);
+    cx.fillStyle = `rgba(255,40,55,${p.a})`; cx.fill();
+  });
+  requestAnimationFrame(drawDust);
+})();
+
+/* ---- 7. Cursor spotlight (smoothly follows the mouse) ---- */
+const spot = document.getElementById('spot');
+let mx = innerWidth/2, my = innerHeight/2, sx = mx, sy = my;
+addEventListener('pointermove', e=>{ mx = e.clientX; my = e.clientY; });
+(function follow(){
+  sx += (mx - sx) * .12; sy += (my - sy) * .12;
+  spot.style.setProperty('--x', sx+'px');
+  spot.style.setProperty('--y', sy+'px');
+  requestAnimationFrame(follow);
+})();
+document.getElementById('toggle').addEventListener('click', ()=>document.body.classList.toggle('nospot'));
+
+/* ---- 8. 3D orbit of cards (auto-rotates, drag to spin) ---- */
+const ring  = document.getElementById('ring');
+const stage = document.getElementById('stage');
+const cards = [...ring.children];
+const N = cards.length;
+let R = 380, rot = 0, vel = .15, dragging = false, lastX = 0;
+
+function layout(){
+  R = innerWidth < 700 ? 250 : 380;
+  cards.forEach((c,i)=>{
+    c.dataset.a = i * 360 / N;
+    c.style.transform = `rotateY(${i*360/N}deg) translateZ(${R}px)`;
+  });
+}
+layout(); addEventListener('resize', layout);
+
+(function orbit(){
+  if(!dragging){ rot += vel; vel += (.15 - vel) * .02; }   // slow spin + momentum fades
+  ring.style.transform = `translateZ(-${R}px) rotateY(${rot}deg)`;
+  cards.forEach(c=>{
+    const a = (+c.dataset.a + rot) * Math.PI/180;
+    const facing = (Math.cos(a) + 1) / 2;                  // 1 = in front, 0 = behind
+    c.style.opacity = (.2 + .8 * Math.pow(facing, 1.4)).toFixed(3);
+  });
+  requestAnimationFrame(orbit);
+})();
+
+stage.addEventListener('pointerdown', e=>{ dragging = true; lastX = e.clientX; });
+addEventListener('pointerup',   ()=>{ dragging = false; });
+addEventListener('pointermove', e=>{
+  if(!dragging) return;
+  const dx = e.clientX - lastX; lastX = e.clientX;
+  rot += dx * .35; vel = dx * .35;
+});
+/* mouse spotlight inside each card */
+cards.forEach(c=>c.addEventListener('pointermove', e=>{
+  const r = c.getBoundingClientRect();
+  c.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+  c.style.setProperty('--my', (e.clientY - r.top) + 'px');
+}));
+
+/* ---- 9. REAL 3D SCENE (Three.js) ----
+   A glowing red wireframe "cloud core" with orbiting rings and satellites,
+   surrounded by 3D floating particles. It reacts to your mouse and to scrolling. */
+if (window.THREE) {
+  const RED = 0xff1e2d;
+  const cvs = document.getElementById('three');
+  const renderer = new THREE.WebGLRenderer({canvas: cvs, alpha: true, antialias: true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  const scene  = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(50, 1, .1, 100);
+  camera.position.z = 10;
+
+  const group = new THREE.Group();
+  scene.add(group);
+
+  // dark solid core + glowing red wire skin + faint outer shell
+  group.add(new THREE.Mesh(new THREE.IcosahedronGeometry(2, 1), new THREE.MeshBasicMaterial({color: 0x160004})));
+  const wire  = new THREE.Mesh(new THREE.IcosahedronGeometry(2.04, 1), new THREE.MeshBasicMaterial({color: RED, wireframe: true}));
+  const shell = new THREE.Mesh(new THREE.IcosahedronGeometry(3, 1), new THREE.MeshBasicMaterial({color: RED, wireframe: true, transparent: true, opacity: .14}));
+  group.add(wire, shell);
+
+  // two thin orbit rings, each carrying small satellites
+  const ringMat = new THREE.MeshBasicMaterial({color: RED, transparent: true, opacity: .55});
+  const ringA = new THREE.Mesh(new THREE.TorusGeometry(3.7, .012, 8, 200), ringMat);
+  const ringB = new THREE.Mesh(new THREE.TorusGeometry(4.4, .012, 8, 200), ringMat);
+  ringA.rotation.x = 1.2;
+  ringB.rotation.set(.4, 1.1, 0);
+  group.add(ringA, ringB);
+
+  function addSatellites(ring, radius, count){
+    for (let i = 0; i < count; i++){
+      const s = new THREE.Mesh(new THREE.OctahedronGeometry(.17), new THREE.MeshBasicMaterial({color: 0xff5566, wireframe: true}));
+      const a = i / count * Math.PI * 2;
+      s.position.set(Math.cos(a) * radius, Math.sin(a) * radius, 0);
+      ring.add(s);
+    }
+  }
+  addSatellites(ringA, 3.7, 4);
+  addSatellites(ringB, 4.4, 3);
+
+  // 700 particles spread in 3D space
+  const COUNT = 700, pos = new Float32Array(COUNT * 3);
+  for (let i = 0; i < COUNT; i++){
+    const r = 5 + Math.random() * 14, th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1);
+    pos[i*3]   = r * Math.sin(ph) * Math.cos(th);
+    pos[i*3+1] = r * Math.sin(ph) * Math.sin(th);
+    pos[i*3+2] = r * Math.cos(ph);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const stars = new THREE.Points(geo, new THREE.PointsMaterial({color: 0xff4455, size: .05, transparent: true, opacity: .8}));
+  scene.add(stars);
+
+  let baseX = 3.6, baseS = 1;
+  function resize(){
+    renderer.setSize(innerWidth, innerHeight, false);
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    const mobile = innerWidth < 800;
+    baseX = mobile ? 0 : 3.6;      // on desktop the shape sits on the right
+    baseS = mobile ? .6 : 1;
+  }
+  resize(); addEventListener('resize', resize);
+
+  let t3 = 0, nx = 0, ny = 0;
+  (function frame(){
+    t3 += .01;
+    nx += ((mx / innerWidth  - .5) - nx) * .05;     // smoothed mouse position (-0.5 to 0.5)
+    ny += ((my / innerHeight - .5) - ny) * .05;
+    const sc = scrollY / innerHeight;               // 0 at top, 1 after one screen of scrolling
+
+    group.rotation.y = t3 * .4 + nx * 1.4;
+    group.rotation.x = ny * .7 + sc * .9;
+    group.position.x = baseX * (1 - Math.min(sc, 1.6) * 1.1);   // drifts across as you scroll
+    group.position.y = Math.sin(sc * 1.5);
+    group.scale.setScalar(baseS * (1 - Math.min(sc, 2) * .18));
+    shell.scale.setScalar(1 + Math.sin(t3 * 2) * .03);           // gentle breathing
+    ringA.rotation.z += .006;
+    ringB.rotation.z -= .004;
+
+    stars.rotation.y = t3 * .03 + nx * .2;
+    stars.rotation.x = sc * .2;
+
+    cvs.style.setProperty('--o', Math.max(.25, 1 - sc * .35) * (innerWidth < 800 ? .5 : 1));
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  })();
+}
+
+/* ---- 10. 3D tilt on the stat boxes (they lean towards your mouse) ---- */
+document.querySelectorAll('.stat, .tile').forEach(el=>{
+  el.addEventListener('pointermove', e=>{
+    const r = el.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width  - .5;
+    const y = (e.clientY - r.top)  / r.height - .5;
+    el.style.transition = 'transform .1s';
+    el.style.transform = `perspective(600px) rotateX(${-y*16}deg) rotateY(${x*16}deg) translateZ(10px)`;
+  });
+  el.addEventListener('pointerleave', ()=>{ el.style.transition = ''; el.style.transform = ''; });
+});
+
+/* ---- 11. Intro photo frames drift slightly with your mouse (depth effect) ---- */
+const framesEl = document.querySelector('.frames');
+(function parallax(){
+  if(!framesEl.isConnected) return;               // stops once the intro is removed
+  framesEl.style.transform = `translate(${(mx/innerWidth - .5) * -30}px, ${(my/innerHeight - .5) * -20}px)`;
+  requestAnimationFrame(parallax);
+})();
+
+/* ---- 12. SCROLL STORY: 3D scene driven by scrolling ----
+   "p" goes from 0 to 1 while you scroll through the #story section.
+   p 0 - .28   : crystal charges up, words slide apart
+   p .30 - .55 : crystal bursts into thousands of particles
+   p .55 - .80 : particles pull back, new 3D knot + new text appear
+   p .90 - 1   : camera pushes in, then normal scrolling continues      */
+(function(){
+  const sec = document.getElementById('story');
+  const cvs2 = document.getElementById('storyCv');
+  const wl = document.getElementById('wl'), wr = document.getElementById('wr');
+  const cl = document.getElementById('cl'), cr = document.getElementById('cr');
+  const s2 = document.getElementById('s2');
+  const cnum = document.getElementById('cnum'), shint = document.getElementById('shint');
+  const clamp = (v,a=0,b=1)=>Math.min(b,Math.max(a,v));
+  const ease  = t=>t*t*(3-2*t);
+
+  /* ---------- build the 3D objects (needs Three.js) ---------- */
+  let G = null;
+  if (window.THREE) {
+    const renderer = new THREE.WebGLRenderer({canvas: cvs2, alpha: true, antialias: true});
+    const PR = Math.min(devicePixelRatio, 2);
+    renderer.setPixelRatio(PR);
+    const scene = new THREE.Scene();
+    const cam = new THREE.PerspectiveCamera(45, 1, .1, 100);
+    let camZ = 7;
+    function size(){
+      renderer.setSize(cvs2.clientWidth, cvs2.clientHeight, false);
+      cam.aspect = cvs2.clientWidth / cvs2.clientHeight;
+      cam.updateProjectionMatrix();
+      camZ = innerWidth < 800 ? 9.5 : 7;
+    }
+    size(); addEventListener('resize', size);
+
+    scene.add(new THREE.AmbientLight(0xffffff, .3));
+    const l1 = new THREE.PointLight(0xff1e2d, 2.2, 30); l1.position.set(3, 2, 5);
+    const l2 = new THREE.PointLight(0xffffff, 1.1, 30); l2.position.set(-4, -2, 4);
+    scene.add(l1, l2);
+
+    // --- the crystal: dark glassy facets + red edges + glowing core + spikes ---
+    const crystal = new THREE.Group();
+    const facets = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(1.15, 0),
+      new THREE.MeshStandardMaterial({color: 0x1a0008, metalness: .85, roughness: .3, flatShading: true, transparent: true, opacity: .72})
+    );
+    const edges = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(1.17, 0)),
+      new THREE.LineBasicMaterial({color: 0xff1e2d})
+    );
+    const glow = new THREE.Mesh(new THREE.SphereGeometry(.55, 24, 24), new THREE.MeshBasicMaterial({color: 0xff1e2d}));
+    const sp = [];
+    for (let i = 0; i < 220; i++){
+      const th = Math.random()*Math.PI*2, ph = Math.acos(2*Math.random()-1);
+      const d = new THREE.Vector3(Math.sin(ph)*Math.cos(th), Math.sin(ph)*Math.sin(th), Math.cos(ph));
+      const r0 = 1.1 + Math.random()*.2, r1 = 1.7 + Math.random()*1.6;
+      sp.push(d.x*r0, d.y*r0, d.z*r0, d.x*r1, d.y*r1, d.z*r1);
+    }
+    const spGeo = new THREE.BufferGeometry();
+    spGeo.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3));
+    const spikes = new THREE.LineSegments(spGeo, new THREE.LineBasicMaterial({color: 0xff3344, transparent: true, opacity: .55}));
+    crystal.add(glow, facets, edges, spikes);
+    scene.add(crystal);
+
+    // --- burst particles (all maths happens on the graphics card) ---
+    const COUNT = 7000;
+    const dir = new Float32Array(COUNT*3), spd = new Float32Array(COUNT), sz = new Float32Array(COUNT);
+    for (let i = 0; i < COUNT; i++){
+      const th = Math.random()*Math.PI*2, ph = Math.acos(2*Math.random()-1);
+      dir[i*3]   = Math.sin(ph)*Math.cos(th);
+      dir[i*3+1] = Math.sin(ph)*Math.sin(th);
+      dir[i*3+2] = Math.cos(ph);
+      spd[i] = .4 + Math.pow(Math.random(), 1.5) * 4.2;
+      sz[i]  = .5 + Math.random()*1.5;
+    }
+    const pg = new THREE.BufferGeometry();
+    pg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(COUNT*3), 3));
+    pg.setAttribute('dir', new THREE.BufferAttribute(dir, 3));
+    pg.setAttribute('spd', new THREE.BufferAttribute(spd, 1));
+    pg.setAttribute('sz',  new THREE.BufferAttribute(sz, 1));
+    const pm = new THREE.ShaderMaterial({
+      uniforms: {uB:{value:0}, uA:{value:0}, uSize:{value:3.2}, uPix:{value:PR}},
+      vertexShader: `
+        attribute vec3 dir; attribute float spd; attribute float sz;
+        uniform float uB; uniform float uSize; uniform float uPix;
+        varying float vT;
+        void main(){
+          vec3 p = dir * spd * uB;
+          vec4 mv = modelViewMatrix * vec4(p, 1.0);
+          gl_Position = projectionMatrix * mv;
+          gl_PointSize = sz * uSize * uPix * (6.0 / -mv.z);
+          vT = spd;
+        }`,
+      fragmentShader: `
+        uniform float uA; uniform float uB; varying float vT;
+        void main(){
+          float d = length(gl_PointCoord - 0.5);
+          if(d > 0.5) discard;
+          float a = smoothstep(0.5, 0.0, d);
+          vec3 col = mix(vec3(1.0,0.12,0.18), vec3(1.0,0.8,0.8), clamp(vT*0.25, 0.0, 1.0) * (1.0 - uB*0.3));
+          gl_FragColor = vec4(col, a * uA);
+        }`,
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+    });
+    const pts = new THREE.Points(pg, pm);
+    pts.frustumCulled = false;
+    scene.add(pts);
+
+    // --- second object: a glowing wireframe knot ---
+    const knotG = new THREE.TorusKnotGeometry(1.2, .32, 200, 24);
+    const knot = new THREE.Group();
+    knot.add(
+      new THREE.Mesh(knotG, new THREE.MeshStandardMaterial({color: 0x120005, metalness: .8, roughness: .35})),
+      new THREE.Mesh(knotG, new THREE.MeshBasicMaterial({color: 0xff1e2d, wireframe: true, transparent: true, opacity: .55}))
+    );
+    knot.children[0].scale.setScalar(.985);
+    scene.add(knot);
+
+    G = function(p, t){
+      const shrink = ease(clamp((p-.28)/.1));
+      const charge = ease(clamp((p-.12)/.16));
+      crystal.visible = shrink < 1;
+      crystal.scale.setScalar((1 + charge*.12) * (1 - shrink));
+      crystal.rotation.y = t*.5 + p*5;
+      crystal.rotation.x = p*1.5;
+      glow.scale.setScalar(1 + charge*.6 + Math.sin(t*6)*.04*charge);
+
+      const grow = ease(clamp((p-.3)/.25));
+      const pull = ease(clamp((p-.55)/.25));
+      pm.uniforms.uB.value = grow * (1 - .8*pull);
+      pm.uniforms.uA.value = clamp((p-.3)/.05) * (1 - .4*pull);
+      pts.rotation.y = t*.06 + p*2;
+      pts.rotation.x = p*.5;
+
+      const kn = ease(clamp((p-.55)/.2));
+      knot.visible = kn > 0;
+      knot.scale.setScalar(Math.max(kn, .001));
+      knot.rotation.x = t*.3 + p*3;
+      knot.rotation.y = t*.4;
+
+      l1.intensity = 2.2 + 9 * Math.max(0, 1 - Math.abs(p-.3)/.04);   // flash at the burst
+      cam.position.z = camZ - ease(clamp((p-.88)/.12)) * 2.4;
+      renderer.render(scene, cam);
+    };
+  }
+
+  /* ---------- scroll progress + text animation ---------- */
+  let ps = 0, tt = 0;
+  (function frame(){
+    tt += .01;
+    const r = sec.getBoundingClientRect();
+    const visible = r.bottom > 0 && r.top < innerHeight;
+    const target = clamp(-r.top / (r.height - innerHeight));
+    ps += (target - ps) * .08;                       // smooth follow
+    if (visible){
+      const p = ps;
+      const out = ease(clamp((p-.1)/.25));           // words slide apart
+      wl.style.transform = `translate(${-out*45}vw,-50%)`;
+      wr.style.transform = `translate(${out*45}vw,-50%)`;
+      wl.style.opacity = wr.style.opacity = 1 - clamp((p-.14)/.2);
+      cl.style.opacity = cr.style.opacity = 1 - clamp((p-.05)/.12);
+
+      const a2 = clamp((p-.6)/.12) * (1 - clamp((p-.93)/.07));
+      s2.style.opacity = a2;
+      s2.style.transform = `translate(-50%, calc(-50% + ${(1 - clamp((p-.6)/.12)) * 40}px))`;
+
+      shint.style.opacity = 1 - clamp(p/.05);
+      cnum.textContent = '+ ' + String(Math.round(p*100)).padStart(2,'0');
+      if (G) G(p, tt);
+    }
+    requestAnimationFrame(frame);
+  })();
+})();
+
+/* phones/tablets have no mouse, so start with the cursor spotlight off */
+if(matchMedia('(hover:none)').matches) document.body.classList.add('nospot');
+</script>
+</body>
+</html>
